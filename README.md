@@ -1,7 +1,7 @@
 # ccdm-mcp
 
 Cliente TypeScript, servidor MCP y watcher para la API de agendamiento de
-**Clínica Ciudad del Mar**, reconstruidos desde un HAR del flujo "Reserva tu hora".
+**Clínica Ciudad del Mar**.
 
 Sirve para buscar las horas médicas más cercanas de una especialidad en todas
 las sucursales y **avisar cuando se libera una hora** (por ejemplo, las que
@@ -16,8 +16,7 @@ quedan disponibles cuando otro paciente cancela).
 
 Requiere Node ≥ 23.6 (ejecuta TypeScript directo, sin build). `npm test` corre la suite.
 
-> Hecho para uso personal, a partir de tráfico propio del portal. El esquema de
-> firma fue provisto por el equipo de la clínica.
+> El esquema de firma fue provisto por el equipo de la clínica.
 
 ## Autenticación
 

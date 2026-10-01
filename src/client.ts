@@ -1,5 +1,5 @@
 // Cliente para la API de agendamiento de Clínica Ciudad del Mar (CCDM),
-// reconstruido a partir de un HAR del flujo "Reserva tu hora".
+// cliente del flujo "Reserva tu hora".
 
 import type { AuthProvider } from "./auth.ts";
 
@@ -13,7 +13,7 @@ export interface ClientOptions {
   auth: AuthProvider;
   /** RUT del paciente con guion, ej. "12345678-9". */
   rut?: string;
-  /** Previsión del paciente (16 en el HAR). */
+  /** Previsión del paciente. */
   previsionId?: number;
   fetch?: typeof fetch;
 }
