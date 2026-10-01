@@ -71,3 +71,27 @@ test("detecta un día que se libera entre revisiones", async () => {
   assert.deepEqual(conTope.slots.map((s) => s.profesional), ["Cristian Godoy Barrios"]);
   rmSync(process.env.CCDM_STATE_FILE!, { force: true });
 });
+
+test("ventanas por día aplican tope de hora distinto a cada fecha", async () => {
+  // Calendario con hoy (01/10) y mañana (02/10) disponibles.
+  const cal = structuredClone(calendar);
+  cal.disponibilidadDias = [
+    { dia: "01/10/2026", codEstado: 1, descEstado: "DISPONIBLE", empresaSucursal: [{ codEmpresa: 5, codSucursal: "4", codProf: "14" }] },
+    { dia: "02/10/2026", codEstado: 1, descEstado: "DISPONIBLE", empresaSucursal: [{ codEmpresa: 5, codSucursal: "4", codProf: "14" }] },
+  ];
+  // Detalle: a las 14:00 ese día (dentro de hoy<=15:00, fuera de mañana<=12:30).
+  const fetch = (async (u: URL, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (u.pathname.endsWith("reintento-oferta")) return Response.json(cal);
+    const d = structuredClone(dayDetail);
+    d.agendasxEspComercial[0].profesionales = [{ ...dayDetail.agendasxEspComercial[0].profesionales[0], proxHoraDisponible: `${body.fecha} 14:00` }];
+    return Response.json(d);
+  }) as typeof globalThis.fetch;
+  const client = new (await import("../src/client.ts")).CcdmClient({ auth: () => ({}), rut: "1-9", fetch });
+  const r = await findNearestSlots(client, {
+    especialidad: 404,
+    ventanas: [{ fecha: "01/10/2026", horaHasta: "15:00" }, { fecha: "02/10/2026", horaHasta: "12:30" }],
+  });
+  // 14:00 pasa hoy (<=15:00) pero no mañana (>12:30).
+  assert.deepEqual(r.slots.map((s) => [s.fecha, s.hora]), [["01/10/2026", "14:00"]]);
+});

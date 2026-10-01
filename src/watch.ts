@@ -2,12 +2,15 @@
 // Vigila una especialidad y avisa (notificación de macOS) cuando se libera una hora.
 //
 //   node src/watch.ts 404 --hoy --hasta 15:00 --cada 120   (404 = Traumatología rodilla)
+//   node src/watch.ts 404 --ventana hoy:-15:00 --ventana manana:-12:30   (hoy hasta 15:00, mañana hasta 12:30)
 //
 // Opciones:
-//   --hoy              solo horas de hoy
+//   --hoy              solo horas de hoy (hora mínima = ahora)
 //   --fecha dd/MM/yyyy solo horas de esa fecha
 //   --desde HH:mm      hora mínima (con --hoy, por defecto la hora actual)
 //   --hasta HH:mm      hora máxima
+//   --ventana F:D-H    ventana por día (repetible). F = hoy | manana | dd/MM/yyyy,
+//                      D/H = hora desde/hasta (ambas opcionales). Ej: hoy:-15:00  manana:09:00-12:30
 //   --sucursales 3,4   limitar sucursales
 //   --cada N           segundos entre revisiones (mínimo 60, por defecto 120)
 //   --una-vez          una sola revisión y salir
@@ -16,7 +19,7 @@ import { execFile } from "node:child_process";
 import { parseArgs } from "node:util";
 import { loadAuthProvider } from "./auth.ts";
 import { CcdmClient, toApiDate } from "./client.ts";
-import { checkForNewSlots, formatDay, formatSlot, type NearestQuery } from "./search.ts";
+import { checkForNewSlots, formatDay, formatSlot, type NearestQuery, type Ventana } from "./search.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -25,11 +28,39 @@ const { values, positionals } = parseArgs({
     fecha: { type: "string" },
     desde: { type: "string" },
     hasta: { type: "string" },
+    ventana: { type: "string", multiple: true },
     sucursales: { type: "string" },
     cada: { type: "string", default: "120" },
     "una-vez": { type: "boolean" },
   },
 });
+
+/** "hoy" | "manana" | "dd/MM/yyyy" -> dd/MM/yyyy */
+function resolveFecha(f: string): string {
+  const s = f.trim().toLowerCase();
+  if (s === "hoy") return toApiDate(new Date());
+  if (s === "manana" || s === "mañana") {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return toApiDate(d);
+  }
+  return f.trim();
+}
+
+/** "hoy:-15:00" | "manana:09:00-12:30" | "02/10/2026:-12:30" -> Ventana */
+function parseVentana(spec: string): Ventana {
+  const i = spec.lastIndexOf(":");
+  // Separa "<fecha>:<rango>" cuidando que la fecha no tenga ":".
+  const m = spec.match(/^([^:]+):(.*)$/);
+  if (!m) return { fecha: resolveFecha(spec) };
+  const [, fechaRaw, rango] = m;
+  const [desde, hasta] = rango.split("-");
+  return {
+    fecha: resolveFecha(fechaRaw),
+    horaDesde: desde?.trim() || undefined,
+    horaHasta: hasta?.trim() || undefined,
+  };
+}
 
 const especialidad = positionals.join(" ");
 if (!especialidad) {
@@ -51,13 +82,26 @@ function notify(title: string, message: string) {
   execFile("osascript", ["-e", `display notification "${esc(message)}" with title "${esc(title)}" sound name "Glass"`], () => {});
 }
 
+const ventanas: Ventana[] | undefined = values.ventana?.length
+  ? values.ventana.map(parseVentana)
+  : undefined;
+
 async function tick() {
+  const hoy = toApiDate(new Date());
+  // La hora mínima solo se autofija a "ahora" cuando la ventana es hoy.
+  const conHoraActual = (v: Ventana): Ventana =>
+    v.fecha === hoy && !v.horaDesde ? { ...v, horaDesde: nowHHmm() } : v;
+
   const q: NearestQuery = {
     especialidad,
-    soloFecha: values.fecha ?? (values.hoy ? toApiDate(new Date()) : undefined),
-    horaDesde: values.desde ?? (values.hoy ? nowHHmm() : undefined),
-    horaHasta: values.hasta,
     sucursales: values.sucursales?.split(",").map(Number),
+    ...(ventanas
+      ? { ventanas: ventanas.map(conHoraActual), maxDias: Math.max(3, ventanas.length) }
+      : {
+          soloFecha: values.fecha ?? (values.hoy ? hoy : undefined),
+          horaDesde: values.desde ?? (values.hoy ? nowHHmm() : undefined),
+          horaHasta: values.hasta,
+        }),
   };
   const stamp = new Date().toLocaleTimeString("es-CL");
   try {

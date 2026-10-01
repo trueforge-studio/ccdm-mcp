@@ -37,6 +37,20 @@ export interface NearestQuery {
   /** Cuántos días con disponibilidad revisar en detalle. */
   maxDias?: number;
   limite?: number;
+  /**
+   * Ventanas por día con tope de hora distinto, ej.
+   * [{ fecha: "01/10/2026", horaHasta: "15:00" }, { fecha: "02/10/2026", horaHasta: "12:30" }].
+   * Si se pasan, reemplazan a soloFecha/horaDesde/horaHasta: solo se consideran
+   * esas fechas y un slot pasa si cae dentro de su ventana.
+   */
+  ventanas?: Ventana[];
+}
+
+export interface Ventana {
+  /** dd/MM/yyyy */
+  fecha: string;
+  horaDesde?: string;
+  horaHasta?: string;
 }
 
 export interface FoundSlot {
@@ -94,7 +108,11 @@ const splitCsv = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean
 export async function findNearestSlots(client: CcdmClient, q: NearestQuery): Promise<NearestResult> {
   const especialidades = await resolveSpecialties(client, q.especialidad);
   const sucursales = q.sucursales ?? ALL_SUCURSALES;
-  const desde = q.desde ?? q.soloFecha ?? toApiDate(new Date());
+  const ventanas = q.ventanas;
+  const fechasVentana = ventanas && new Set(ventanas.map((v) => v.fecha));
+  const desde = q.desde
+    ?? (ventanas ? [...ventanas.map((v) => v.fecha)].sort((a, b) => sortKey(a).localeCompare(sortKey(b)))[0] : undefined)
+    ?? q.soloFecha ?? toApiDate(new Date());
   const maxDias = q.maxDias ?? 3;
   const slots: FoundSlot[] = [];
   const dias: AvailableDay[] = [];
@@ -107,6 +125,7 @@ export async function findNearestSlots(client: CcdmClient, q: NearestQuery): Pro
       .filter((d) => d.codEstado === 1 && sortKey(d.dia) >= sortKey(desde))
       .sort((a, b) => sortKey(a.dia).localeCompare(sortKey(b.dia)));
     if (q.soloFecha) disponibles = disponibles.filter((d) => d.dia === q.soloFecha);
+    if (fechasVentana) disponibles = disponibles.filter((d) => fechasVentana.has(d.dia));
 
     for (const d of disponibles) {
       dias.push({
@@ -132,10 +151,18 @@ export async function findNearestSlots(client: CcdmClient, q: NearestQuery): Pro
     }
   }
 
+  const pasaVentana = (s: FoundSlot) => {
+    if (!ventanas) {
+      return (!q.soloFecha || s.fecha === q.soloFecha)
+        && (!q.horaDesde || s.hora >= q.horaDesde)
+        && (!q.horaHasta || s.hora <= q.horaHasta);
+    }
+    const v = ventanas.find((w) => w.fecha === s.fecha);
+    return !!v && (!v.horaDesde || s.hora >= v.horaDesde) && (!v.horaHasta || s.hora <= v.horaHasta);
+  };
+
   const filtered = slots
-    .filter((s) => !q.soloFecha || s.fecha === q.soloFecha)
-    .filter((s) => !q.horaDesde || s.hora >= q.horaDesde)
-    .filter((s) => !q.horaHasta || s.hora <= q.horaHasta)
+    .filter(pasaVentana)
     .sort((a, b) => sortKey(a.fecha, a.hora).localeCompare(sortKey(b.fecha, b.hora)));
 
   return {
