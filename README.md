@@ -1,12 +1,23 @@
-# ccdm-client
+# ccdm-mcp
 
-Cliente TypeScript y servidor MCP para la API de agendamiento de Clínica Ciudad del Mar, reconstruidos desde un HAR del flujo "Reserva tu hora".
+Cliente TypeScript, servidor MCP y watcher para la API de agendamiento de
+**Clínica Ciudad del Mar**, reconstruidos desde un HAR del flujo "Reserva tu hora".
 
-- `src/client.ts`: `CcdmClient` con todos los endpoints del HAR.
-- `src/auth.ts`: interfaz `AuthProvider` (enchufable).
-- `src/mcp.ts`: servidor MCP por stdio.
+Sirve para buscar las horas médicas más cercanas de una especialidad en todas
+las sucursales y **avisar cuando se libera una hora** (por ejemplo, las que
+quedan disponibles cuando otro paciente cancela).
 
-Requiere Node ≥ 23.6 (ejecuta TypeScript directo, sin build).
+- `src/client.ts` — `CcdmClient`, un método por endpoint.
+- `src/signature.ts` — firma Portal Único (cifrado híbrido RSA + AES).
+- `src/auth.ts` — `AuthProvider` enchufable (firmador por defecto).
+- `src/search.ts` — búsqueda por especialidad y detección de horas/días nuevos.
+- `src/mcp.ts` — servidor MCP por stdio.
+- `src/watch.ts` — watcher CLI con notificación de macOS.
+
+Requiere Node ≥ 23.6 (ejecuta TypeScript directo, sin build). `npm test` corre la suite.
+
+> Hecho para uso personal, a partir de tráfico propio del portal. El esquema de
+> firma fue provisto por el equipo de la clínica.
 
 ## Autenticación
 
@@ -49,7 +60,8 @@ Nota: el esquema HMAC-SHA256 anterior es legacy y no se usa.
 | `getPatientMfa` | `GET /pacientes/pacienteMfa` |
 | `sendAuthorizationCode` | `POST /login/enviar-codigo-autorizacion` (envía SMS real; no expuesto en el MCP) |
 
-Las respuestas se devuelven como JSON crudo: el HAR se exportó sin cuerpos de respuesta, así que todavía no hay tipos.
+Las respuestas de calendario y detalle están tipadas (ver `src/client.ts`). El
+resto se devuelve como JSON crudo porque aún no se han mapeado.
 
 ## MCP
 
@@ -58,7 +70,7 @@ Las respuestas se devuelven como JSON crudo: el HAR se exportó sin cuerpos de r
   "mcpServers": {
     "ccdm": {
       "command": "node",
-      "args": ["/Users/joaquinnunez/ccdm/src/mcp.ts"],
+      "args": ["/ruta/a/ccdm-mcp/src/mcp.ts"],
       "env": { "CCDM_RUT": "12345678-9", "CCDM_PREVISION_ID": "16" }
     }
   }
@@ -74,11 +86,22 @@ Tools de bajo nivel: `ccdm_initial_data`, `ccdm_specialty_availability`, `ccdm_s
 
 ## Watcher CLI
 
-Revisa cada 2 minutos y lanza una notificación de macOS cuando aparece una hora nueva:
+Revisa cada 2 minutos (configurable) y lanza una notificación de macOS cuando
+aparece una **hora o un día nuevo**. La línea base de la primera corrida se guarda
+en `~/.ccdm/watch-state.json`.
 
 ```bash
-CCDM_RUT=12345678-9 CCDM_PREVISION_ID=16 npm run watch -- 404 --hoy --hasta 15:00 --cada 120
+# Horas de hoy hasta las 15:00
+CCDM_RUT=12345678-9 CCDM_PREVISION_ID=16 npm run watch -- 404 --hoy --hasta 15:00
+
+# Ventanas por día: hoy hasta 15:00 y mañana hasta 12:30
+CCDM_RUT=12345678-9 CCDM_PREVISION_ID=16 npm run watch -- 404 \
+  --ventana hoy:-15:00 --ventana manana:-12:30
 ```
+
+Opciones: `--hoy`, `--fecha dd/MM/yyyy`, `--desde HH:mm`, `--hasta HH:mm`,
+`--ventana F:D-H` (repetible; `F` = `hoy` | `manana` | `dd/MM/yyyy`),
+`--sucursales 3,4`, `--cada N` (segundos), `--una-vez`.
 
 ## Respuestas
 
