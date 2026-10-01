@@ -1,0 +1,85 @@
+{
+  "codRespuesta": 0,
+  "glosaRespuesta": "Respuesta exitosa",
+  "diaInicioBusquedaHoras": "05/10/2026",
+  "codEspecialidad": 404,
+  "modeloCentral": "S",
+  "disponibilidadDias": [
+    {
+      "dia": "05/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4",
+          "codProf": "14,356,5339,63"
+        }
+      ]
+    },
+    {
+      "dia": "06/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4,5",
+          "codProf": "14,556"
+        }
+      ]
+    },
+    {
+      "dia": "07/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4,5",
+          "codProf": "356,5339,556,63"
+        }
+      ]
+    },
+    {
+      "dia": "08/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4,5",
+          "codProf": "14,356,5339,556,6184"
+        }
+      ]
+    },
+    {
+      "dia": "09/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4",
+          "codProf": "14,356,5339,6184"
+        }
+      ]
+    },
+    {
+      "dia": "10/10/2026",
+      "codEstado": 1,
+      "descEstado": "DISPONIBLE",
+      "empresaSucursal": [
+        {
+          "codEmpresa": 5,
+          "codSucursal": "3,4",
+          "codProf": "356"
+        }
+      ]
+    }
+  ],
+  "existenAlternativos": 0,
+  "existenEnSucursales": 0,
+  "listaProfAlternativo": [],
+  "sucursalesAlternativos": null
+}
